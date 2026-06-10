@@ -3,8 +3,10 @@ import pandas as pd
 import altair as alt
 from datetime import timedelta
 import os
+import json
 from dotenv import load_dotenv
 from google import genai as _genai
+from google.genai import types as _gtypes
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
 _GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "") or os.getenv("GEMINI_API_KEY", "")
@@ -458,6 +460,7 @@ else:
         with chat_container:
             with st.chat_message("assistant", avatar="🤖"):
                 with st.spinner("Gemini가 분석 중입니다..."):
+                    table_data, chart_type, chart_x, chart_y, chart_title = None, None, None, None, ""
                     try:
                         system_ctx = build_context(loan, unif)
 
@@ -466,16 +469,41 @@ else:
                             role_label = "사용자" if m["role"] == "user" else "AI"
                             history_text += f"{role_label}: {m['content']}\n"
 
+                        json_schema = (
+                            "반드시 아래 JSON 형식으로만 응답하세요:\n"
+                            "{\n"
+                            '  "answer": "텍스트 답변 (마크다운 가능)",\n'
+                            '  "table": [{{"컬럼명": 값}}, ...] 또는 null,\n'
+                            '  "chart_type": "bar" | "line" | "pie" | null,\n'
+                            '  "chart_x": "x축 컬럼명" 또는 null,\n'
+                            '  "chart_y": "y축 컬럼명" 또는 null,\n'
+                            '  "chart_title": "차트 제목" 또는 null\n'
+                            "}\n"
+                            "순위·비교·통계 답변이면 table에 데이터 포함(최대 20행), "
+                            "시각화 가능하면 chart_type 지정, 단순 답변이면 table·chart_type은 null.\n\n"
+                        )
+
                         full_prompt = (
                             f"{system_ctx}\n\n"
+                            f"{json_schema}"
                             f"[이전 대화]\n{history_text}\n"
                             f"사용자: {user_input}\nAI:"
                         )
 
                         response = _gemini_client.models.generate_content(
-                            model="gemini-2.0-flash", contents=full_prompt
+                            model="gemini-2.0-flash",
+                            contents=full_prompt,
+                            config=_gtypes.GenerateContentConfig(
+                                response_mime_type="application/json"
+                            ),
                         )
-                        answer = response.text
+                        parsed = json.loads(response.text)
+                        answer     = parsed.get("answer", "")
+                        table_data = parsed.get("table")
+                        chart_type = parsed.get("chart_type")
+                        chart_x    = parsed.get("chart_x")
+                        chart_y    = parsed.get("chart_y")
+                        chart_title = parsed.get("chart_title", "")
                     except Exception as e:
                         err = str(e)
                         if "429" in err or "RESOURCE_EXHAUSTED" in err:
@@ -491,6 +519,38 @@ else:
                             answer = f"⚠️ 오류: {err}"
 
                 st.markdown(answer)
+
+                if table_data:
+                    df_result = pd.DataFrame(table_data)
+                    st.dataframe(df_result, use_container_width=True)
+
+                    if chart_type and chart_x and chart_y and chart_x in df_result.columns and chart_y in df_result.columns:
+                        x_type = "Q" if pd.api.types.is_numeric_dtype(df_result[chart_x]) else "N"
+                        y_type = "Q" if pd.api.types.is_numeric_dtype(df_result[chart_y]) else "Q"
+                        enc_x  = alt.X(f"{chart_x}:{x_type}", sort="-y" if chart_type == "bar" else None)
+                        enc_y  = alt.Y(f"{chart_y}:{y_type}")
+                        tips   = [c for c in df_result.columns]
+
+                        if chart_type == "bar":
+                            ai_chart = alt.Chart(df_result).mark_bar(color="#4C9BE8").encode(
+                                x=enc_x, y=enc_y, tooltip=tips
+                            ).properties(title=chart_title, height=260)
+                        elif chart_type == "line":
+                            ai_chart = alt.Chart(df_result).mark_line(point=True, color="#4C9BE8", strokeWidth=2).encode(
+                                x=alt.X(f"{chart_x}:O"), y=enc_y, tooltip=tips
+                            ).properties(title=chart_title, height=260)
+                        elif chart_type == "pie":
+                            ai_chart = alt.Chart(df_result).mark_arc(innerRadius=40).encode(
+                                theta=alt.Theta(f"{chart_y}:Q"),
+                                color=alt.Color(f"{chart_x}:N"),
+                                tooltip=tips
+                            ).properties(title=chart_title, height=260)
+                        else:
+                            ai_chart = None
+
+                        if ai_chart:
+                            st.altair_chart(ai_chart, use_container_width=True)
+
                 st.session_state.ai_messages.append({"role": "assistant", "content": answer})
         st.rerun()
 

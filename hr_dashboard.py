@@ -1,6 +1,15 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+import os
+import json
+from dotenv import load_dotenv
+from google import genai as _genai
+from google.genai import types as _gtypes
+
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+_GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "") or os.getenv("GEMINI_API_KEY", "")
+_gemini_client = _genai.Client(api_key=_GEMINI_KEY) if _GEMINI_KEY else None
 
 st.set_page_config(page_title="인사 관리 대시보드", layout="wide", page_icon="🏢")
 st.title("🏢 인사 관리 대시보드")
@@ -225,3 +234,140 @@ with tab2:
         height=350
     )
     st.caption(f"총 {len(du):,}건 표시 중")
+
+
+# ════════════════════════════════════════════════════════════
+# AI 데이터 분석 채팅
+# ════════════════════════════════════════════════════════════
+st.markdown("---")
+st.markdown("### 🤖 AI 데이터 분석 채팅")
+st.caption("현재 데이터를 기반으로 자유롭게 질문하세요.  예) *연체 중인 직원 중 잔액이 가장 많은 사람은?* / *미지급 현황 요약해줘*")
+
+if not _GEMINI_KEY:
+    st.warning("`.env` 파일 또는 Streamlit Secrets에 GEMINI_API_KEY 가 없습니다.")
+else:
+    def _build_ctx(loan_df: pd.DataFrame, unif_df: pd.DataFrame) -> str:
+        return (
+            "당신은 인사팀 HR 데이터 분석 전문가입니다.\n"
+            "아래 두 데이터셋을 근거로 사용자 질문에 한국어로 정확하게 답하세요.\n"
+            "- 이름·금액·부서 등 구체적인 수치를 포함해 답하세요.\n"
+            "- 데이터에 없는 정보는 '데이터에 해당 정보가 없습니다'라고 하세요.\n"
+            f"- 기준일: {pd.Timestamp('today').strftime('%Y-%m-%d')}\n\n"
+            "===== [임직원 대출금 관리] =====\n"
+            f"{loan_df.to_csv(index=False)}\n\n"
+            "===== [근무복·안전화 지급 관리] =====\n"
+            f"{unif_df.to_csv(index=False)}\n"
+        )
+
+    _JSON_SCHEMA = (
+        "반드시 아래 JSON 형식으로만 응답하세요:\n"
+        "{\n"
+        '  "answer": "텍스트 답변 (마크다운 가능)",\n'
+        '  "table": [{{"컬럼명": 값}}, ...] 또는 null,\n'
+        '  "chart_type": "bar" | "line" | "pie" | null,\n'
+        '  "chart_x": "x축 컬럼명" 또는 null,\n'
+        '  "chart_y": "y축 컬럼명" 또는 null,\n'
+        '  "chart_title": "차트 제목" 또는 null\n'
+        "}\n"
+        "순위·비교·통계 답변이면 table에 포함(최대 20행), 시각화 가능하면 chart_type 지정.\n\n"
+    )
+
+    if "dash_ai_messages" not in st.session_state:
+        st.session_state.dash_ai_messages = []
+
+    chat_box = st.container()
+    with chat_box:
+        for msg in st.session_state.dash_ai_messages:
+            with st.chat_message(msg["role"], avatar="🧑" if msg["role"] == "user" else "🤖"):
+                st.markdown(msg["content"])
+
+    user_q = st.chat_input("대시보드 데이터에 대해 질문하세요...")
+
+    if user_q:
+        st.session_state.dash_ai_messages.append({"role": "user", "content": user_q})
+        with chat_box:
+            with st.chat_message("user", avatar="🧑"):
+                st.markdown(user_q)
+
+        with chat_box:
+            with st.chat_message("assistant", avatar="🤖"):
+                with st.spinner("Gemini가 분석 중입니다..."):
+                    table_data, chart_type, chart_x, chart_y, chart_title = None, None, None, None, ""
+                    try:
+                        history_text = ""
+                        for m in st.session_state.dash_ai_messages[:-1]:
+                            role_label = "사용자" if m["role"] == "user" else "AI"
+                            history_text += f"{role_label}: {m['content']}\n"
+
+                        full_prompt = (
+                            f"{_build_ctx(df_loan, df_unif)}\n\n"
+                            f"{_JSON_SCHEMA}"
+                            f"[이전 대화]\n{history_text}\n"
+                            f"사용자: {user_q}\nAI:"
+                        )
+                        response = _gemini_client.models.generate_content(
+                            model="gemini-2.0-flash",
+                            contents=full_prompt,
+                            config=_gtypes.GenerateContentConfig(
+                                response_mime_type="application/json"
+                            ),
+                        )
+                        parsed     = json.loads(response.text)
+                        answer     = parsed.get("answer", "")
+                        table_data = parsed.get("table")
+                        chart_type = parsed.get("chart_type")
+                        chart_x    = parsed.get("chart_x")
+                        chart_y    = parsed.get("chart_y")
+                        chart_title = parsed.get("chart_title", "")
+                    except Exception as e:
+                        err = str(e)
+                        if "429" in err or "RESOURCE_EXHAUSTED" in err:
+                            answer = (
+                                "⚠️ **API 할당량 초과**\n\n"
+                                "[Google AI Studio](https://aistudio.google.com/app/apikey)에서 "
+                                "새 API 키를 발급받아 교체하세요."
+                            )
+                        elif "401" in err or "API_KEY_INVALID" in err:
+                            answer = "⚠️ **API 키 오류**: `GEMINI_API_KEY`를 확인하세요."
+                        else:
+                            answer = f"⚠️ 오류: {err}"
+
+                st.markdown(answer)
+
+                if table_data:
+                    df_result = pd.DataFrame(table_data)
+                    st.dataframe(df_result, use_container_width=True)
+
+                    if chart_type and chart_x and chart_y and chart_x in df_result.columns and chart_y in df_result.columns:
+                        x_type = "Q" if pd.api.types.is_numeric_dtype(df_result[chart_x]) else "N"
+                        enc_x  = alt.X(f"{chart_x}:{x_type}", sort="-y" if chart_type == "bar" else None)
+                        enc_y  = alt.Y(f"{chart_y}:Q")
+                        tips   = list(df_result.columns)
+
+                        if chart_type == "bar":
+                            ai_chart = alt.Chart(df_result).mark_bar(color="#4C9BE8").encode(
+                                x=enc_x, y=enc_y, tooltip=tips
+                            ).properties(title=chart_title, height=260)
+                        elif chart_type == "line":
+                            ai_chart = alt.Chart(df_result).mark_line(point=True, color="#4C9BE8", strokeWidth=2).encode(
+                                x=alt.X(f"{chart_x}:O"), y=enc_y, tooltip=tips
+                            ).properties(title=chart_title, height=260)
+                        elif chart_type == "pie":
+                            ai_chart = alt.Chart(df_result).mark_arc(innerRadius=40).encode(
+                                theta=alt.Theta(f"{chart_y}:Q"),
+                                color=alt.Color(f"{chart_x}:N"),
+                                tooltip=tips
+                            ).properties(title=chart_title, height=260)
+                        else:
+                            ai_chart = None
+
+                        if ai_chart:
+                            st.altair_chart(ai_chart, use_container_width=True)
+
+                st.session_state.dash_ai_messages.append({"role": "assistant", "content": answer})
+        st.rerun()
+
+    if st.session_state.dash_ai_messages:
+        if st.button("🗑️ 대화 초기화", key="dash_clear"):
+            st.session_state.dash_ai_messages = []
+            st.rerun()
