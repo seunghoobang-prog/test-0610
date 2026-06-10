@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from google import genai as _genai
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
-_GEMINI_KEY = os.getenv("GEMINI_API_KEY", "")
+_GEMINI_KEY = st.secrets.get("GEMINI_API_KEY", "") or os.getenv("GEMINI_API_KEY", "")
 _gemini_client = _genai.Client(api_key=_GEMINI_KEY) if _GEMINI_KEY else None
 
 st.set_page_config(
