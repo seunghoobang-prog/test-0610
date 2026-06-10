@@ -1,0 +1,10 @@
+.env
+__pycache__/
+.streamlit/
+.cache/
+.local/
+.vscode/
+.vscode-shared/
+.claude/
+.claude.json
+*.pyc
