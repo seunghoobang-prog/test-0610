@@ -1,0 +1,66 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+:root {
+  --primary: #16a34a;
+  --primary-dark: #15803d;
+  --accent: #f97316;
+  --accent-warm: #eab308;
+  --bg-warm: #fefce8;
+  --vn-red: #da1f26;
+}
+
+body {
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', Arial, Helvetica, sans-serif;
+  background-color: var(--bg-warm);
+  color: #1c1917;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Tropical gradient backgrounds */
+.bg-hero-gradient {
+  background: linear-gradient(135deg, #064e3b 0%, #065f46 30%, #0f766e 60%, #0e7490 100%);
+}
+
+.bg-tropical-card {
+  background: linear-gradient(135deg, #f0fdf4 0%, #fefce8 100%);
+}
+
+/* Category badge */
+.badge-임장기 {
+  background-color: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fed7aa;
+}
+
+.badge-여행기 {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+/* Grade badge */
+.grade-새싹단원 { background-color: #dcfce7; color: #15803d; }
+.grade-정예단원 { background-color: #dbeafe; color: #1d4ed8; }
+.grade-시니어임장단 { background-color: #f3e8ff; color: #7e22ce; }
+.grade-마스터임장단 { background-color: #fef9c3; color: #a16207; }
+
+/* Post card hover */
+.post-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.post-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* Leaflet map container */
+.leaflet-container {
+  font-family: 'Pretendard', Arial, sans-serif;
+  border-radius: 12px;
+}
