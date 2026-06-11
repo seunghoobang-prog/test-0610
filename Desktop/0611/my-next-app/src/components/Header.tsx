@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import type { User } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 
 const navLinks = [
   { href: '/', label: '홈' },
@@ -14,7 +16,28 @@ const navLinks = [
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function handleLogout() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/');
+    router.refresh();
+  }
 
   return (
     <header className="bg-green-800 text-white shadow-md sticky top-0 z-50">
@@ -46,12 +69,26 @@ export default function Header() {
               </Link>
             );
           })}
-          <Link
-            href="/board"
-            className="ml-2 px-4 py-1.5 bg-orange-500 hover:bg-orange-400 text-white rounded-full text-sm font-semibold transition-colors"
-          >
-            + 글쓰기
-          </Link>
+
+          {/* Auth buttons */}
+          {user ? (
+            <div className="flex items-center gap-2 ml-2">
+              <span className="text-green-200 text-xs max-w-32 truncate">{user.email}</span>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1.5 bg-green-700 hover:bg-green-600 text-white rounded-full text-sm font-semibold transition-colors border border-green-500"
+              >
+                로그아웃
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="ml-2 px-4 py-1.5 bg-white text-green-800 hover:bg-green-50 rounded-full text-sm font-semibold transition-colors"
+            >
+              로그인
+            </Link>
+          )}
         </nav>
 
         {/* Mobile hamburger */}
@@ -82,13 +119,26 @@ export default function Header() {
               {link.label}
             </Link>
           ))}
-          <Link
-            href="/board"
-            onClick={() => setMenuOpen(false)}
-            className="mt-1 px-4 py-2 bg-orange-500 text-white rounded-full text-sm font-semibold text-center"
-          >
-            + 글쓰기
-          </Link>
+
+          {user ? (
+            <>
+              <div className="px-3 py-1 text-xs text-green-300 truncate">{user.email}</div>
+              <button
+                onClick={() => { handleLogout(); setMenuOpen(false); }}
+                className="mt-1 px-4 py-2 bg-green-700 border border-green-500 text-white rounded-full text-sm font-semibold text-center"
+              >
+                로그아웃
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              onClick={() => setMenuOpen(false)}
+              className="mt-1 px-4 py-2 bg-white text-green-800 rounded-full text-sm font-semibold text-center"
+            >
+              로그인
+            </Link>
+          )}
         </div>
       )}
     </header>
