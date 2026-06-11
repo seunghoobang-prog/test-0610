@@ -11,7 +11,6 @@ const PROGRAMS = [
   { num: 2, label: '상조회', href: '/welfare/sangjo' },
   { num: 3, label: '주택대부금 / 긴급가계안전자금', href: '/welfare/housing-loan' },
   { num: 4, label: '근무복 / 안전장구류', href: '/welfare/uniform' },
-  { num: 5, label: '심리상담', href: '/welfare/counseling' },
 ];
 
 export default function WelfareSidebar() {

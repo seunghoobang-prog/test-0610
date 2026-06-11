@@ -7,7 +7,6 @@ const PROGRAM_CARDS = [
   { num: 2, label: '상조회', href: '/welfare/sangjo', emoji: '🌸', bg: '#FAF5FF', border: '#E9D5FF' },
   { num: 3, label: '주택대부금', href: '/welfare/housing-loan', emoji: '🏠', bg: '#FFF7ED', border: '#FED7AA' },
   { num: 4, label: '근무복 / 안전장구류', href: '/welfare/uniform', emoji: '👷', bg: '#F0F9FF', border: '#BAE6FD' },
-  { num: 5, label: '심리상담', href: '/welfare/counseling', emoji: '💬', bg: '#FFF1F2', border: '#FECDD3' },
 ];
 
 function fmt(n: number) {
@@ -35,7 +34,6 @@ export default async function RegionDashboardPage({
     { ...PROGRAM_CARDS[1], stat: `올해 ${annualSangjo}건`, sub: `이용횟수 ${usedQuota}/${totalQuota} (${quotaRate}%)` },
     { ...PROGRAM_CARDS[2], stat: `${fmt(totalLoan)}원`, sub: `이용률 ${loanRate}% | 대기 ${waitlistCount}명` },
     { ...PROGRAM_CARDS[3], stat: `신청 ${uniformPending}건 대기`, sub: `지급완료 ${uniformDelivered}건` },
-    { ...PROGRAM_CARDS[4], stat: '상담 예약 가능', sub: '심리상담 신청' },
   ];
 
   return (
@@ -67,7 +65,7 @@ export default async function RegionDashboardPage({
             <p className="text-xs mt-0.5" style={{ color: '#64748B' }}>직원 수</p>
           </div>
           <div className="rounded-lg p-3 text-center" style={{ backgroundColor: '#F8FAFC' }}>
-            <p className="text-2xl font-bold" style={{ color: '#003A8C' }}>5</p>
+            <p className="text-2xl font-bold" style={{ color: '#003A8C' }}>4</p>
             <p className="text-xs mt-0.5" style={{ color: '#64748B' }}>복리후생 프로그램</p>
           </div>
         </div>
