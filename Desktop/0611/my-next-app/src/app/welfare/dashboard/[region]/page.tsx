@@ -5,10 +5,9 @@ import { getRegionDashboard } from '@/lib/welfare';
 const PROGRAM_CARDS = [
   { num: 1, label: '콘도 / 하계휴양소', href: '/welfare/condo', emoji: '🏖️', bg: '#EFF6FF', border: '#BFDBFE' },
   { num: 2, label: '상조회', href: '/welfare/sangjo', emoji: '🌸', bg: '#FAF5FF', border: '#E9D5FF' },
-  { num: 3, label: '개인연금', href: '/welfare/pension', emoji: '💰', bg: '#F0FDF4', border: '#BBF7D0' },
-  { num: 4, label: '주택대부금', href: '/welfare/housing-loan', emoji: '🏠', bg: '#FFF7ED', border: '#FED7AA' },
-  { num: 5, label: '근무복 / 안전장구류', href: '/welfare/uniform', emoji: '👷', bg: '#F0F9FF', border: '#BAE6FD' },
-  { num: 6, label: '심리상담', href: '/welfare/counseling', emoji: '💬', bg: '#FFF1F2', border: '#FECDD3' },
+  { num: 3, label: '주택대부금', href: '/welfare/housing-loan', emoji: '🏠', bg: '#FFF7ED', border: '#FED7AA' },
+  { num: 4, label: '근무복 / 안전장구류', href: '/welfare/uniform', emoji: '👷', bg: '#F0F9FF', border: '#BAE6FD' },
+  { num: 5, label: '심리상담', href: '/welfare/counseling', emoji: '💬', bg: '#FFF1F2', border: '#FECDD3' },
 ];
 
 function fmt(n: number) {
