@@ -5,13 +5,9 @@ import { getRegionDashboard } from '@/lib/welfare';
 const PROGRAM_CARDS = [
   { num: 1, label: '콘도 / 하계휴양소', href: '/welfare/condo', emoji: '🏖️', bg: '#EFF6FF', border: '#BFDBFE' },
   { num: 2, label: '상조회', href: '/welfare/sangjo', emoji: '🌸', bg: '#FAF5FF', border: '#E9D5FF' },
-  { num: 3, label: '주택대부금', href: '/welfare/housing-loan', emoji: '🏠', bg: '#FFF7ED', border: '#FED7AA' },
-  { num: 4, label: '근무복 / 안전장구류', href: '/welfare/uniform', emoji: '👷', bg: '#F0F9FF', border: '#BAE6FD' },
+  { num: 3, label: '근무복 / 안전장구류', href: '/welfare/uniform', emoji: '👷', bg: '#F0F9FF', border: '#BAE6FD' },
 ];
 
-function fmt(n: number) {
-  return new Intl.NumberFormat('ko-KR').format(n);
-}
 
 export default async function RegionDashboardPage({
   params,
@@ -24,16 +20,14 @@ export default async function RegionDashboardPage({
 
   if (!data) notFound();
 
-  const { region: regionInfo, teams, employeeCount, totalLoan, totalLimit, waitlistCount, annualSangjo, usedQuota, totalQuota, uniformPending, uniformDelivered } = data;
+  const { region: regionInfo, teams, employeeCount, annualSangjo, usedQuota, totalQuota, uniformPending, uniformDelivered } = data;
 
-  const loanRate = totalLimit > 0 ? Math.round((totalLoan / totalLimit) * 100) : 0;
   const quotaRate = totalQuota > 0 ? Math.round((usedQuota / totalQuota) * 100) : 0;
 
   const programStats = [
     { ...PROGRAM_CARDS[0], stat: '이용현황 확인', sub: '예약 가능' },
     { ...PROGRAM_CARDS[1], stat: `올해 ${annualSangjo}건`, sub: `이용횟수 ${usedQuota}/${totalQuota} (${quotaRate}%)` },
-    { ...PROGRAM_CARDS[2], stat: `${fmt(totalLoan)}원`, sub: `이용률 ${loanRate}% | 대기 ${waitlistCount}명` },
-    { ...PROGRAM_CARDS[3], stat: `신청 ${uniformPending}건 대기`, sub: `지급완료 ${uniformDelivered}건` },
+    { ...PROGRAM_CARDS[2], stat: `신청 ${uniformPending}건 대기`, sub: `지급완료 ${uniformDelivered}건` },
   ];
 
   return (
@@ -65,7 +59,7 @@ export default async function RegionDashboardPage({
             <p className="text-xs mt-0.5" style={{ color: '#64748B' }}>직원 수</p>
           </div>
           <div className="rounded-lg p-3 text-center" style={{ backgroundColor: '#F8FAFC' }}>
-            <p className="text-2xl font-bold" style={{ color: '#003A8C' }}>4</p>
+            <p className="text-2xl font-bold" style={{ color: '#003A8C' }}>3</p>
             <p className="text-xs mt-0.5" style={{ color: '#64748B' }}>복리후생 프로그램</p>
           </div>
         </div>
