@@ -222,61 +222,78 @@ export async function getUniformApplications(year: number, season?: string): Pro
 }
 
 export async function getRegionDashboard(regionName: string) {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const { data: region } = await supabase
-    .from('welfare_regions')
-    .select('id, name, province')
-    .eq('name', regionName)
-    .single();
+    const { data: region, error: regionError } = await supabase
+      .from('welfare_regions')
+      .select('id, name, province')
+      .eq('name', regionName)
+      .maybeSingle();
 
-  if (!region) return null;
+    if (regionError || !region) return null;
 
-  const { data: teams } = await supabase
-    .from('welfare_teams')
-    .select('id, name')
-    .eq('region_id', region.id);
+    const { data: teams } = await supabase
+      .from('welfare_teams')
+      .select('id, name')
+      .eq('region_id', region.id);
 
-  const teamIds = (teams ?? []).map(t => t.id);
+    const teamIds = (teams ?? []).map(t => t.id);
 
-  const [
-    { count: employeeCount },
-    { data: loanRows },
-    { count: waitlistCount },
-    { data: usageRows },
-    { data: quotaRows },
-    { data: appRows },
-  ] = await Promise.all([
-    supabase.from('welfare_employees').select('id', { count: 'exact', head: true }).in('team_id', teamIds),
-    supabase.from('housing_loans').select('loan_amount, limit_amount')
-      .in('employee_id', teamIds.length
-        ? (await supabase.from('welfare_employees').select('id').in('team_id', teamIds)).data?.map(e => e.id) ?? []
-        : []),
-    supabase.from('housing_waitlist').select('id', { count: 'exact', head: true }),
-    supabase.from('sangjo_usage').select('usage_count').eq('year', new Date().getFullYear()).eq('region_id', region.id),
-    supabase.from('sangjo_employee_quota').select('total_quota, used_count').eq('year', new Date().getFullYear()),
-    supabase.from('uniform_applications').select('status').eq('year', new Date().getFullYear()).eq('season', 'summer'),
-  ]);
+    // Pre-compute employee IDs to avoid await-inside-Promise.all
+    let employeeIds: number[] = [];
+    if (teamIds.length > 0) {
+      const { data: empData } = await supabase
+        .from('welfare_employees')
+        .select('id')
+        .in('team_id', teamIds);
+      employeeIds = (empData ?? []).map(e => e.id);
+    }
 
-  const totalLoan = (loanRows ?? []).reduce((s, l) => s + Number(l.loan_amount), 0);
-  const totalLimit = (loanRows ?? []).reduce((s, l) => s + Number(l.limit_amount), 0);
-  const annualSangjo = (usageRows ?? []).reduce((s, u) => s + u.usage_count, 0);
-  const usedQuota = (quotaRows ?? []).reduce((s, q) => s + q.used_count, 0);
-  const totalQuota = (quotaRows ?? []).reduce((s, q) => s + q.total_quota, 0);
-  const uniformPending = (appRows ?? []).filter(a => a.status === 'pending').length;
-  const uniformDelivered = (appRows ?? []).filter(a => a.status === 'delivered').length;
+    const thisYear = new Date().getFullYear();
 
-  return {
-    region,
-    teams: teams ?? [],
-    employeeCount: employeeCount ?? 0,
-    totalLoan,
-    totalLimit,
-    waitlistCount: waitlistCount ?? 0,
-    annualSangjo,
-    usedQuota,
-    totalQuota,
-    uniformPending,
-    uniformDelivered,
-  };
+    const [
+      { count: employeeCount },
+      { data: loanRows },
+      { count: waitlistCount },
+      { data: usageRows },
+      { data: quotaRows },
+      { data: appRows },
+    ] = await Promise.all([
+      teamIds.length > 0
+        ? supabase.from('welfare_employees').select('id', { count: 'exact', head: true }).in('team_id', teamIds)
+        : Promise.resolve({ count: 0, data: null, error: null }),
+      employeeIds.length > 0
+        ? supabase.from('housing_loans').select('loan_amount, limit_amount').in('employee_id', employeeIds)
+        : Promise.resolve({ data: [], error: null }),
+      supabase.from('housing_waitlist').select('id', { count: 'exact', head: true }),
+      supabase.from('sangjo_usage').select('usage_count').eq('year', thisYear).eq('region_id', region.id),
+      supabase.from('sangjo_employee_quota').select('total_quota, used_count').eq('year', thisYear),
+      supabase.from('uniform_applications').select('status').eq('year', thisYear).eq('season', 'summer'),
+    ]);
+
+    const totalLoan = (loanRows ?? []).reduce((s, l) => s + Number(l.loan_amount), 0);
+    const totalLimit = (loanRows ?? []).reduce((s, l) => s + Number(l.limit_amount), 0);
+    const annualSangjo = (usageRows ?? []).reduce((s, u) => s + u.usage_count, 0);
+    const usedQuota = (quotaRows ?? []).reduce((s, q) => s + q.used_count, 0);
+    const totalQuota = (quotaRows ?? []).reduce((s, q) => s + q.total_quota, 0);
+    const uniformPending = (appRows ?? []).filter(a => a.status === 'pending').length;
+    const uniformDelivered = (appRows ?? []).filter(a => a.status === 'delivered').length;
+
+    return {
+      region,
+      teams: teams ?? [],
+      employeeCount: employeeCount ?? 0,
+      totalLoan,
+      totalLimit,
+      waitlistCount: waitlistCount ?? 0,
+      annualSangjo,
+      usedQuota,
+      totalQuota,
+      uniformPending,
+      uniformDelivered,
+    };
+  } catch {
+    return null;
+  }
 }
